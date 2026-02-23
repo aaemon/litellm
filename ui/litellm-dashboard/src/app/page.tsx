@@ -30,7 +30,7 @@ import PromptsPanel from "@/components/prompts";
 import PublicModelHub from "@/components/public_model_hub";
 import { SearchTools } from "@/components/SearchTools";
 import Settings from "@/components/settings";
-import { SurveyPrompt, SurveyModal, ClaudeCodePrompt, ClaudeCodeModal } from "@/components/survey";
+
 import TagManagement from "@/components/tag_management";
 import TransformRequestPanel from "@/components/transform_request";
 import UIThemeSettings from "@/components/ui_theme_settings";
@@ -125,11 +125,11 @@ function CreateKeyPageContent() {
   const [authLoading, setAuthLoading] = useState(true);
   const [userID, setUserID] = useState<string | null>(null);
 
-  // Survey state - always show by default
-  const [showSurveyPrompt, setShowSurveyPrompt] = useState(true);
+  // Survey state - disabled in fork
+  const [showSurveyPrompt, setShowSurveyPrompt] = useState(false);
   const [showSurveyModal, setShowSurveyModal] = useState(false);
 
-  // Claude Code feedback state
+  // Claude Code feedback state - disabled in fork
   const [isClaudeCode, setIsClaudeCode] = useState(false);
   const [showClaudeCodePrompt, setShowClaudeCodePrompt] = useState(false);
   const [showClaudeCodeModal, setShowClaudeCodeModal] = useState(false);
@@ -567,29 +567,6 @@ function CreateKeyPageContent() {
                   )}
                 </div>
 
-                {/* Survey Components */}
-                <SurveyPrompt
-                  isVisible={showSurveyPrompt}
-                  onOpen={handleOpenSurvey}
-                  onDismiss={handleDismissSurveyPrompt}
-                />
-                <SurveyModal
-                  isOpen={showSurveyModal}
-                  onClose={handleSurveyModalClose}
-                  onComplete={handleSurveyComplete}
-                />
-
-                {/* Claude Code Components */}
-                <ClaudeCodePrompt
-                  isVisible={showClaudeCodePrompt}
-                  onOpen={handleOpenClaudeCode}
-                  onDismiss={handleDismissClaudeCodePrompt}
-                />
-                <ClaudeCodeModal
-                  isOpen={showClaudeCodeModal}
-                  onClose={handleClaudeCodeModalClose}
-                  onComplete={handleClaudeCodeComplete}
-                />
               </div>
             )}
           </ThemeProvider>

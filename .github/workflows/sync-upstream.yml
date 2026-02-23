@@ -1,0 +1,108 @@
+name: Sync Upstream LiteLLM
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: 'Skip UI build'
+        required: false
+        default: 'false'
+        type: boolean
+
+  # Weekly schedule (every Monday at 6:00 UTC)
+  schedule:
+    - cron: '0 6 * * 1'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/BerriAI/litellm.git || true
+          git fetch upstream main
+
+      - name: Check for new changes
+        id: check
+        run: |
+          AHEAD=$(git rev-list --count HEAD..upstream/main)
+          echo "commits_ahead=$AHEAD" >> $GITHUB_OUTPUT
+          echo "Upstream is $AHEAD commits ahead"
+
+      - name: Merge upstream
+        if: steps.check.outputs.commits_ahead != '0'
+        id: merge
+        run: |
+          if git merge upstream/main --no-edit; then
+            echo "merge_success=true" >> $GITHUB_OUTPUT
+          else
+            echo "merge_success=false" >> $GITHUB_OUTPUT
+            echo "::warning::Merge conflicts detected. Manual resolution required."
+            git merge --abort
+          fi
+
+      - name: Apply customizations
+        if: steps.check.outputs.commits_ahead != '0' && steps.merge.outputs.merge_success == 'true'
+        run: |
+          chmod +x scripts/apply_customizations.sh
+          bash scripts/apply_customizations.sh
+
+      - name: Setup Node.js
+        if: steps.check.outputs.commits_ahead != '0' && steps.merge.outputs.merge_success == 'true' && github.event.inputs.skip_build != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build UI
+        if: steps.check.outputs.commits_ahead != '0' && steps.merge.outputs.merge_success == 'true' && github.event.inputs.skip_build != 'true'
+        run: |
+          cd ui/litellm-dashboard
+          npm install --legacy-peer-deps
+          npm run build
+          rm -rf ../../litellm/proxy/_experimental/out/*
+          cp -r ./out/* ../../litellm/proxy/_experimental/out/
+          rm -rf ./out
+
+      - name: Commit changes
+        if: steps.check.outputs.commits_ahead != '0' && steps.merge.outputs.merge_success == 'true'
+        run: |
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to commit after customizations"
+          else
+            git commit -m "chore: sync upstream and re-apply customizations"
+          fi
+
+      - name: Push changes
+        if: steps.check.outputs.commits_ahead != '0' && steps.merge.outputs.merge_success == 'true'
+        run: |
+          git push origin main
+
+      - name: Create issue on merge conflict
+        if: steps.check.outputs.commits_ahead != '0' && steps.merge.outputs.merge_success == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '⚠️ Upstream sync failed - merge conflicts',
+              body: `The automatic upstream sync encountered merge conflicts.\n\nUpstream has **${{ steps.check.outputs.commits_ahead }}** new commits.\n\nPlease resolve manually:\n\`\`\`bash\n./scripts/sync_upstream.sh\n# Resolve conflicts\ngit add -A && git commit\ngit push origin main\n\`\`\``,
+              labels: ['upstream-sync', 'needs-attention']
+            });

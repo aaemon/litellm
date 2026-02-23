@@ -53,6 +53,10 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ visible, possibleUIRoles,
             <TextInput />
           </Form.Item>
 
+          <Form.Item label="Set Password" tooltip="Set a new password for the user (leave empty to keep current)" name="password">
+            <TextInput type="password" placeholder="Enter new password" />
+          </Form.Item>
+
           <Form.Item label="user_id" name="user_id" hidden={true}>
             <TextInput />
           </Form.Item>
@@ -94,10 +98,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ visible, possibleUIRoles,
           <Form.Item label="Reset Budget" name="budget_duration">
             <BudgetDurationDropdown />
           </Form.Item>
-
-          <div style={{ textAlign: "right", marginTop: "10px" }}>
-            <Button2 htmlType="submit">Save</Button2>
-          </div>
 
           <div style={{ textAlign: "right", marginTop: "10px" }}>
             <Button2 htmlType="submit">Save</Button2>

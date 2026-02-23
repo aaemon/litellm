@@ -12,7 +12,7 @@ import {
 import { Switch, Tag } from "antd";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
-import { CommunityEngagementButtons } from "./Navbar/CommunityEngagementButtons/CommunityEngagementButtons";
+
 import UserDropdown from "./Navbar/UserDropdown/UserDropdown";
 
 interface NavbarProps {
@@ -103,32 +103,11 @@ const Navbar: React.FC<NavbarProps> = ({
                   </div>
                 </div>
               </Link>
-              {version && (
-                <div className="relative">
-                  <span
-                    className="absolute -top-1 -left-2 text-lg animate-bounce"
-                    style={{ animationDuration: "2s" }}
-                    title="Thanks for using LiteLLM!"
-                  >
-                    ❄️
-                  </span>
-                  <Tag className="relative text-xs font-medium cursor-pointer z-10">
-                    <a
-                      href="https://docs.litellm.ai/release_notes"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-shrink-0"
-                    >
-                      v{version}
-                    </a>
-                  </Tag>
-                </div>
-              )}
             </div>
           </div>
           {/* Right side nav items */}
           <div className="flex items-center space-x-5 ml-auto">
-            <CommunityEngagementButtons />
+
             {/* Dark mode is currently a work in progress. To test, you can change 'false' to 'true' below.
             Do not set this to true by default until all components are confirmed to support dark mode styles. */}
             {false && <Switch

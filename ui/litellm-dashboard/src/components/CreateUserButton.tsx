@@ -65,6 +65,8 @@ export const CreateUserButton: React.FC<CreateuserProps> = ({
   const [isInvitationLinkModalVisible, setIsInvitationLinkModalVisible] = useState(false);
   const [invitationLinkData, setInvitationLinkData] = useState<InvitationLink | null>(null);
   const [baseUrl, setBaseUrl] = useState<string | null>(null);
+  const [isDirectCreateModalVisible, setIsDirectCreateModalVisible] = useState(false);
+  const [directCreateForm] = Form.useForm();
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -153,6 +155,26 @@ export const CreateUserButton: React.FC<CreateuserProps> = ({
     }
   };
 
+  // Direct create handler — creates user with password, no invitation link
+  const handleDirectCreate = async (formValues: { user_email: string; password: string; user_role: string; models?: string[] }) => {
+    try {
+      NotificationsManager.info("Creating user...");
+      if ((!formValues.models || formValues.models.length === 0) && formValues.user_role !== "proxy_admin") {
+        formValues.models = ["no-default-models"];
+      }
+      const response = await userCreateCall(accessToken, null, formValues);
+      await queryClient.invalidateQueries({ queryKey: ["userList"] });
+      NotificationsManager.success("User created successfully. They can now log in with their email and password.");
+      directCreateForm.resetFields();
+      setIsDirectCreateModalVisible(false);
+      localStorage.removeItem("userData" + userID);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || error?.message || "Error creating the user";
+      NotificationsManager.fromBackend(errorMessage);
+      console.error("Error creating the user:", error);
+    }
+  };
+
   // Modify the return statement to handle embedded mode
   if (isEmbedded) {
     return (
@@ -210,6 +232,9 @@ export const CreateUserButton: React.FC<CreateuserProps> = ({
   // Original return for standalone mode
   return (
     <div className="flex gap-2">
+      <Button2 className="mb-0" onClick={() => setIsDirectCreateModalVisible(true)}>
+        + Create User
+      </Button2>
       <Button2 className="mb-0" onClick={() => setIsModalVisible(true)}>
         + Invite User
       </Button2>
@@ -329,6 +354,54 @@ export const CreateUserButton: React.FC<CreateuserProps> = ({
           invitationLinkData={invitationLinkData}
         />
       )}
+
+      {/* Direct Create User Modal */}
+      <Modal
+        title="Create User"
+        open={isDirectCreateModalVisible}
+        width={800}
+        footer={null}
+        onCancel={() => { setIsDirectCreateModalVisible(false); directCreateForm.resetFields(); }}
+      >
+        <Space direction="vertical" size="middle">
+          <Text className="mb-1">Create a user with email and password. They can log in immediately.</Text>
+        </Space>
+        <Form form={directCreateForm} onFinish={handleDirectCreate} labelCol={{ span: 8 }} wrapperCol={{ span: 16 }} labelAlign="left" className="mt-4">
+          <Form.Item label="User Email" name="user_email" rules={[{ required: true, message: "Please enter user email" }]}>
+            <Input placeholder="user@example.com" />
+          </Form.Item>
+          <Form.Item label="Password" name="password" rules={[{ required: true, message: "Please set a password" }]} tooltip="User will log in with this password">
+            <Input.Password placeholder="Set user password" />
+          </Form.Item>
+          <Form.Item
+            label={
+              <span>
+                Global Proxy Role{" "}
+                <Tooltip title="This role is independent of any team/org specific roles.">
+                  <InfoCircleOutlined />
+                </Tooltip>
+              </span>
+            }
+            name="user_role"
+          >
+            <Select2>
+              {possibleUIRoles &&
+                Object.entries(possibleUIRoles).map(([role, { ui_label, description }]) => (
+                  <SelectItem key={role} value={role} title={ui_label}>
+                    <Text>{ui_label}</Text>
+                    <Text type="secondary">{" - "}{description}</Text>
+                  </SelectItem>
+                ))}
+            </Select2>
+          </Form.Item>
+          <Form.Item label="Team" name="team_id" help="If selected, user will be added to the team.">
+            <TeamDropdown teams={teams} />
+          </Form.Item>
+          <div style={{ textAlign: "right", marginTop: "10px" }}>
+            <Button type="primary" icon={<UserAddOutlined />} htmlType="submit">Create User</Button>
+          </div>
+        </Form>
+      </Modal>
     </div>
   );
 };

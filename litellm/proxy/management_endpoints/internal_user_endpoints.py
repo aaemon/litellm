@@ -429,6 +429,15 @@ async def new_user(
 
         data_json = data.json()  # type: ignore
         data_json = _update_internal_new_user_params(data_json, data)
+
+        # Hash password if provided, and pop it from data_json
+        # (generate_key_helper_fn doesn't accept password)
+        hashed_password = None
+        if data.password is not None:
+            from litellm.proxy.utils import hash_token
+            hashed_password = hash_token(token=data.password)
+        data_json.pop("password", None)
+
         teams = data.teams
         if teams is None:
             teams = check_if_default_team_set()
@@ -437,6 +446,15 @@ async def new_user(
         )
 
         response = await generate_key_helper_fn(request_type="user", **data_json)
+
+        # Set the hashed password on the user record if provided
+        if hashed_password is not None:
+            user_id = response.get("user_id")
+            if user_id:
+                await prisma_client.db.litellm_usertable.update(
+                    where={"user_id": user_id},
+                    data={"password": hashed_password},
+                )
         # Admin UI Logic
         # Add User to Team and Organization
         # if team_id passed add this user to the team

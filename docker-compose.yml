@@ -4,23 +4,25 @@ services:
       context: .
       args:
         target: runtime
-    image: docker.litellm.ai/berriai/litellm:main-stable
+    container_name: litellm_test_proxy
     #########################################
-    ## Uncomment these lines to start proxy with a config.yaml file ##
-    # volumes:
-    #  - ./config.yaml:/app/config.yaml
-    # command:
-    #  - "--config=/app/config.yaml"
+    ## Mount a config.yaml for testing ##
+    volumes:
+     - ./config.yaml:/app/config.yaml
+    command:
+     - "--config=/app/config.yaml"
     ##############################################
     ports:
-      - "4000:4000" # Map the container port to the host, change the host port if necessary
+      - "4001:4000" # Map container port 4000 to host port 4001 (4000 is already in use)
     environment:
       DATABASE_URL: "postgresql://llmproxy:dbpassword9090@db:5432/litellm"
       STORE_MODEL_IN_DB: "True" # allows adding models to proxy via UI
+      LITELLM_MASTER_KEY: "sk-test-master-key"
     env_file:
       - .env # Load local .env file
     depends_on:
-      - db  # Indicates that this service depends on the 'db' service, ensuring 'db' starts first
+      db:
+        condition: service_healthy
     healthcheck:  # Defines the health check configuration for the container
       test:
         - CMD-SHELL
@@ -33,15 +35,15 @@ services:
   db:
     image: postgres:16
     restart: always
-    container_name: litellm_db
+    container_name: litellm_test_db
     environment:
       POSTGRES_DB: litellm
       POSTGRES_USER: llmproxy
       POSTGRES_PASSWORD: dbpassword9090
     ports:
-      - "5432:5432"
+      - "5433:5432" # Map to 5433 to avoid conflict with existing DB on 5432
     volumes:
-      - postgres_data:/var/lib/postgresql/data # Persists Postgres data across container restarts
+      - postgres_data_test:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d litellm -U llmproxy"]
       interval: 1s
@@ -64,5 +66,5 @@ services:
 volumes:
   prometheus_data:
     driver: local
-  postgres_data:
-    name: litellm_postgres_data # Named volume for Postgres data persistence
+  postgres_data_test:
+    name: litellm_test_postgres_data

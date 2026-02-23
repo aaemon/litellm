@@ -1280,9 +1280,10 @@ class NewUserRequestTeam(LiteLLMPydanticObjectBase):
 
 
 class NewUserRequest(GenerateRequestBase):
-    max_budget: Optional[float] = None
+    max_budget: Optional[float] = 0
     user_email: Optional[str] = None
     user_alias: Optional[str] = None
+    password: Optional[str] = None
     user_role: Optional[
         Literal[
             LitellmUserRoles.PROXY_ADMIN,
