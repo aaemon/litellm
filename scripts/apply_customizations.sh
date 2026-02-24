@@ -194,6 +194,28 @@ apply_customize_ui_message() {
 }
 
 # ─────────────────────────────────────────────────────────────────
+# 7. Remove version badge from navbar
+# ─────────────────────────────────────────────────────────────────
+apply_remove_version_badge() {
+    local file="$UI_SRC/components/navbar.tsx"
+    echo "🔧 Removing version badge from navbar..."
+
+    if ! grep -q "{version && (" "$file" 2>/dev/null; then
+        log_skip "Version badge already removed"
+        return
+    fi
+
+    # Remove the {version && (...)} block
+    perl -i -0pe 's/\s+\{version && \(.*?\)\}\n//s' "$file"
+
+    if ! grep -q "{version && (" "$file"; then
+        log_success "Removed version badge from navbar"
+    else
+        log_fail "Failed to remove version badge from navbar"
+    fi
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────
 echo "================================================"
@@ -207,6 +229,7 @@ apply_add_password_to_create_user
 apply_add_password_to_edit_user
 apply_remove_duplicate_save_button
 apply_customize_ui_message
+apply_remove_version_badge
 
 echo ""
 echo "================================================"
