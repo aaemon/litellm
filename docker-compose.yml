@@ -17,7 +17,7 @@ services:
     environment:
       DATABASE_URL: "postgresql://llmproxy:dbpassword9090@db:5432/litellm"
       STORE_MODEL_IN_DB: "True" # allows adding models to proxy via UI
-      LITELLM_MASTER_KEY: "sk-test-master-key"
+      # LITELLM_MASTER_KEY and UI_USERNAME/UI_PASSWORD are loaded from .env
     env_file:
       - .env # Load local .env file
     depends_on:
