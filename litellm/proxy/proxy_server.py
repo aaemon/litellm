@@ -638,7 +638,7 @@ else:
 ui_link = f"{server_root_path}/ui"
 fallback_login_link = f"{server_root_path}/fallback/login"
 model_hub_link = f"{server_root_path}/ui/model_hub_table"
-ui_message = f"👉 [```Login```](http://100.73.246.46:4001/ui/login/). Having issues? Try [```Fallback Login```]({fallback_login_link})"
+ui_message = f"👉 [```Login```]({ui_link}/login). Having issues? Try [```Fallback Login```]({fallback_login_link})"
 ui_message += "\n\n💸 [```LiteLLM Model Cost Map```](https://models.litellm.ai/)."
 
 ui_message += f"\n\n🔎 [```LiteLLM Model Hub```]({model_hub_link}). See available models on the proxy. [**Docs**](https://docs.litellm.ai/docs/proxy/ai_hub)"

@@ -177,17 +177,18 @@ apply_customize_ui_message() {
     local file="litellm/proxy/proxy_server.py"
     echo "🔧 Customizing login UI message in proxy_server.py..."
 
-    if grep -q "http://100.73.246.46:4001/ui/login/" "$file" 2>/dev/null; then
+    # Check if already customized (dynamic version - no hardcoded IP)
+    if grep -q 'f"👉 \[```Login```\]({ui_link}/login)' "$file" 2>/dev/null; then
         log_skip "Login UI message already customized"
         return
     fi
 
-    # Replace the original ui_message line
-    # Note: We use \| as delimiter because the strings contain slashes
-    sed -i 's|ui_message = f"👉 \[```LiteLLM Admin Panel on /ui```\]({ui_link})\. Create, Edit Keys with SSO\. Having issues? Try \[```Fallback Login```\]({fallback_login_link})"|ui_message = f"👉 [```Login```](http://100.73.246.46:4001/ui/login/). Having issues? Try [```Fallback Login```]({fallback_login_link})"|' "$file"
+    # Replace the original upstream ui_message line with our custom version
+    # Uses {ui_link} which is already computed dynamically by the proxy
+    sed -i 's|ui_message = f"👉 \[```LiteLLM Admin Panel on /ui```\]({ui_link})\. Create, Edit Keys with SSO\. Having issues? Try \[```Fallback Login```\]({fallback_login_link})"|ui_message = f"👉 [```Login```]({ui_link}/login). Having issues? Try [```Fallback Login```]({fallback_login_link})"|' "$file"
 
-    if grep -q "http://100.73.246.46:4001/ui/login/" "$file"; then
-        log_success "Customized login UI message"
+    if grep -q '{ui_link}/login' "$file"; then
+        log_success "Customized login UI message (uses dynamic url)"
     else
         log_fail "Failed to customize login UI message"
     fi
