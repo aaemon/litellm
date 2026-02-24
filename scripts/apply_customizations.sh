@@ -171,6 +171,29 @@ apply_remove_duplicate_save_button() {
 }
 
 # ─────────────────────────────────────────────────────────────────
+# 6. Customize UI Message in proxy_server.py
+# ─────────────────────────────────────────────────────────────────
+apply_customize_ui_message() {
+    local file="litellm/proxy/proxy_server.py"
+    echo "🔧 Customizing login UI message in proxy_server.py..."
+
+    if grep -q "http://100.73.246.46:4001/ui/login/" "$file" 2>/dev/null; then
+        log_skip "Login UI message already customized"
+        return
+    fi
+
+    # Replace the original ui_message line
+    # Note: We use \| as delimiter because the strings contain slashes
+    sed -i 's|ui_message = f"👉 \[```LiteLLM Admin Panel on /ui```\]({ui_link})\. Create, Edit Keys with SSO\. Having issues? Try \[```Fallback Login```\]({fallback_login_link})"|ui_message = f"👉 [```Login```](http://100.73.246.46:4001/ui/login/). Having issues? Try [```Fallback Login```]({fallback_login_link})"|' "$file"
+
+    if grep -q "http://100.73.246.46:4001/ui/login/" "$file"; then
+        log_success "Customized login UI message"
+    else
+        log_fail "Failed to customize login UI message"
+    fi
+}
+
+# ─────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────
 echo "================================================"
@@ -183,6 +206,7 @@ apply_remove_community_buttons
 apply_add_password_to_create_user
 apply_add_password_to_edit_user
 apply_remove_duplicate_save_button
+apply_customize_ui_message
 
 echo ""
 echo "================================================"
