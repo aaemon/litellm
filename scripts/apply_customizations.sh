@@ -43,8 +43,6 @@ apply_remove_default_credentials() {
     # Use perl for multi-line pattern matching
     perl -i -0pe 's/\s*<Alert\s*\n\s*message="Default Credentials".*?\/>\n//s' "$file"
 
-    # Remove unused InfoCircleOutlined import if present
-    sed -i '/import { InfoCircleOutlined } from "@ant-design\/icons";/d' "$file"
 
     if ! grep -q "Default Credentials" "$file"; then
         log_success "Removed default credentials from login page"
