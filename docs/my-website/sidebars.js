@@ -45,6 +45,7 @@ const sidebars = {
         "proxy/guardrails/guardrail_load_balancing",
         "proxy/guardrails/test_playground",
         "proxy/guardrails/litellm_content_filter",
+        "proxy/guardrails/realtime_guardrails",
         {
           type: "category",
           label: "Providers",
@@ -347,6 +348,7 @@ const sidebars = {
                 "proxy/access_control",
                 "proxy/self_serve",
                 "proxy/public_teams",
+                "proxy/ui_project_management",
                 "proxy/ui/bulk_edit_users",
                 "proxy/ui/page_visibility",
               ]
@@ -634,6 +636,7 @@ const sidebars = {
             "pass_through/bedrock",
             "pass_through/azure_passthrough",
             "pass_through/cohere",
+            "pass_through/cursor",
             "pass_through/google_ai_studio",
             "pass_through/langfuse",
             "pass_through/mistral",
@@ -757,6 +760,7 @@ const sidebars = {
             "providers/vertex_batch",
             "providers/vertex_ocr",
             "providers/vertex_ai_agent_engine",
+            "providers/vertex_realtime",
           ]
         },
         {

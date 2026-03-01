@@ -930,6 +930,35 @@ export const keyCreateCall = async (
   }
 };
 
+export const keyCreateForAgentCall = async (
+  accessToken: string,
+  agentId: string,
+  keyAlias: string,
+  models: string[],
+) => {
+  const url = proxyBaseUrl ? `${proxyBaseUrl}/key/generate` : `/key/generate`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      agent_id: agentId,
+      key_alias: keyAlias,
+      models: models.length > 0 ? models : [],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.text();
+    handleError(errorData);
+    throw new Error("Failed to create key for agent");
+  }
+
+  return response.json();
+};
+
 export const userCreateCall = async (
   accessToken: string,
   userID: string | null,
@@ -3300,13 +3329,33 @@ export const keyListCall = async (
   }
 };
 
-export const keyAliasesCall = async (accessToken: string): Promise<{ aliases: string[] }> => {
+export interface PaginatedKeyAliasResponse {
+  aliases: string[];
+  total_count: number;
+  current_page: number;
+  total_pages: number;
+  size: number;
+}
+
+export const keyAliasesCall = async (
+  accessToken: string,
+  page: number = 1,
+  size: number = 50,
+  search?: string,
+): Promise<PaginatedKeyAliasResponse> => {
   /**
-   * Get all key aliases from proxy
+   * Get key aliases from proxy with pagination and optional search
    */
   try {
+    const params = new URLSearchParams(
+      Object.entries({
+        page: String(page),
+        size: String(size),
+        ...(search ? { search } : {}),
+      }),
+    );
     let url = proxyBaseUrl ? `${proxyBaseUrl}/key/aliases` : `/key/aliases`;
-    console.log("in keyAliasesCall");
+    url = `${url}?${params}`;
 
     const response = await fetch(url, {
       method: "GET",
@@ -3325,7 +3374,7 @@ export const keyAliasesCall = async (accessToken: string): Promise<{ aliases: st
 
     const data = await response.json();
     console.log("/key/aliases API Response:", data);
-    return data; // { aliases: string[] }
+    return data;
   } catch (error) {
     console.error("Failed to fetch key aliases:", error);
     throw error;
@@ -5054,14 +5103,14 @@ export const healthCheckCall = async (accessToken: string) => {
   }
 };
 
-export const individualModelHealthCheckCall = async (accessToken: string, modelName: string) => {
+export const individualModelHealthCheckCall = async (accessToken: string, modelId: string) => {
   /**
-   * Run health check for a specific model using model name
+   * Run health check for a specific model using model ID (so each deployment is checked separately).
    */
   try {
     let url = proxyBaseUrl
-      ? `${proxyBaseUrl}/health?model=${encodeURIComponent(modelName)}`
-      : `/health?model=${encodeURIComponent(modelName)}`;
+      ? `${proxyBaseUrl}/health?model_id=${encodeURIComponent(modelId)}`
+      : `/health?model_id=${encodeURIComponent(modelId)}`;
 
     const response = await fetch(url, {
       method: "GET",
@@ -5081,7 +5130,7 @@ export const individualModelHealthCheckCall = async (accessToken: string, modelN
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error(`Failed to call /health for model ${modelName}:`, error);
+    console.error(`Failed to call /health for model id ${modelId}:`, error);
     throw error;
   }
 };
@@ -5879,6 +5928,7 @@ export const enrichPolicyTemplateStream = async (
   const decoder = new TextDecoder();
   let buffer = "";
 
+  // eslint-disable-next-line no-constant-condition -- stream read loop
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -5897,6 +5947,83 @@ export const enrichPolicyTemplateStream = async (
           onStatus?.(event.message);
         } else if (event.type === "done") {
           onDone(event);
+        } else if (event.type === "error") {
+          onError?.(event.message);
+        }
+      } catch {
+        // skip malformed events
+      }
+    }
+  }
+};
+
+export interface UsageAiToolCallEvent {
+  tool_name: string;
+  tool_label: string;
+  arguments: Record<string, string>;
+  status: "running" | "complete" | "error";
+  error?: string;
+}
+
+export const usageAiChatStream = async (
+  accessToken: string,
+  messages: { role: string; content: string }[],
+  model: string,
+  onChunk: (content: string) => void,
+  onDone: () => void,
+  onError?: (error: string) => void,
+  onStatus?: (message: string) => void,
+  onToolCall?: (event: UsageAiToolCallEvent) => void,
+  signal?: AbortSignal,
+) => {
+  const url = proxyBaseUrl
+    ? `${proxyBaseUrl}/usage/ai/chat`
+    : `/usage/ai/chat`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ messages, model }),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    const errorMessage = deriveErrorMessage(errorData);
+    handleError(errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  // eslint-disable-next-line no-constant-condition -- stream read loop
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      try {
+        const event = JSON.parse(line.slice(6));
+        if (event.type === "chunk") {
+          onChunk(event.content);
+        } else if (event.type === "status") {
+          onStatus?.(event.message);
+        } else if (event.type === "tool_call") {
+          onToolCall?.(event as UsageAiToolCallEvent);
+        } else if (event.type === "done") {
+          onDone();
         } else if (event.type === "error") {
           onError?.(event.message);
         }
@@ -7147,7 +7274,11 @@ export const testSearchToolConnection = async (accessToken: string, litellmParam
   }
 };
 
-export const listMCPTools = async (accessToken: string, serverId: string) => {
+export const listMCPTools = async (
+  accessToken: string, 
+  serverId: string,
+  customHeaders?: Record<string, string>
+) => {
   try {
     // Construct base URL
     let url = proxyBaseUrl
@@ -7159,6 +7290,7 @@ export const listMCPTools = async (accessToken: string, serverId: string) => {
     const headers: Record<string, string> = {
       [globalLitellmHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
+      ...customHeaders, // Merge custom headers for passthrough auth
     };
 
     const response = await fetch(url, {
@@ -7194,6 +7326,7 @@ export const listMCPTools = async (accessToken: string, serverId: string) => {
 
 export interface CallMCPToolOptions {
   guardrails?: string[];
+  customHeaders?: Record<string, string>;
 }
 
 export const callMCPTool = async (
@@ -7212,6 +7345,7 @@ export const callMCPTool = async (
     const headers: Record<string, string> = {
       [globalLitellmHeaderName]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
+      ...(options?.customHeaders || {}), // Merge custom headers for passthrough auth
     };
 
     const body: Record<string, any> = {
@@ -9840,6 +9974,60 @@ export const checkGdprCompliance = async (
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const errorData = await response.text();
+    throw new Error(errorData);
+  }
+  return response.json();
+};
+
+export interface ToolRow {
+  tool_id: string;
+  tool_name: string;
+  origin?: string;
+  call_policy: string;
+  call_count?: number;
+  assignments?: Record<string, any>;
+  key_hash?: string;
+  team_id?: string;
+  key_alias?: string;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+  updated_by?: string;
+}
+
+export const fetchToolsList = async (accessToken: string): Promise<ToolRow[]> => {
+  const url = proxyBaseUrl ? `${proxyBaseUrl}/v1/tool/list` : `/v1/tool/list`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+  if (!response.ok) {
+    const errorData = await response.text();
+    throw new Error(errorData);
+  }
+  const data = await response.json();
+  return data.tools ?? [];
+};
+
+export const updateToolPolicy = async (
+  accessToken: string,
+  toolName: string,
+  callPolicy: string
+): Promise<ToolRow> => {
+  const url = proxyBaseUrl ? `${proxyBaseUrl}/v1/tool/policy` : `/v1/tool/policy`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      [globalLitellmHeaderName]: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ tool_name: toolName, call_policy: callPolicy }),
   });
   if (!response.ok) {
     const errorData = await response.text();

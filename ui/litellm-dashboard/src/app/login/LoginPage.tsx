@@ -7,7 +7,7 @@ import { getProxyBaseUrl } from "@/components/networking";
 import { getCookie } from "@/utils/cookieUtils";
 import { isJwtExpired } from "@/utils/jwtUtils";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { InfoCircleOutlined } from "@ant-design/icons";
 import { Alert, Button, Card, Form, Input, Popover, Space, Typography } from "antd";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -197,11 +197,5 @@ function LoginPageContent() {
 }
 
 export default function LoginPage() {
-  const queryClient = new QueryClient();
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <LoginPageContent />
-    </QueryClientProvider>
-  );
+  return <LoginPageContent />;
 }

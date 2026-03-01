@@ -193,6 +193,7 @@ class ContentFilterGuardrail(CustomGuardrail):
                 GuardrailEventHooks.pre_call,
                 GuardrailEventHooks.post_call,
                 GuardrailEventHooks.during_call,
+                GuardrailEventHooks.realtime_input_transcription,
             ],
             event_hook=event_hook or GuardrailEventHooks.pre_call,
             default_on=default_on,
@@ -214,7 +215,7 @@ class ContentFilterGuardrail(CustomGuardrail):
         self.category_keywords: Dict[str, Tuple[str, str, ContentFilterAction]] = (
             {}
         )  # keyword -> (category, severity, action)
-        # Always-block keywords are checked before exceptions (cannot be bypassed)
+        # Always-block keywords are checked after exceptions (exceptions take precedence)
         self.always_block_category_keywords: Dict[
             str, Tuple[str, str, ContentFilterAction]
         ] = {}
@@ -1068,7 +1069,15 @@ class ContentFilterGuardrail(CustomGuardrail):
         """
         text_lower = text.lower()
 
-        # Always-block keywords are matched first — exceptions do not apply to them.
+        # Check exceptions first — they take precedence over always-block keywords too.
+        for exception in exceptions:
+            if exception in text_lower:
+                verbose_proxy_logger.debug(
+                    f"Exception phrase '{exception}' found, skipping category keyword check"
+                )
+                return None
+
+        # Always-block keywords are checked after exceptions.
         for keyword, (category, severity, action) in self.always_block_category_keywords.items():
             keyword_pattern_str = self._keyword_to_regex_pattern(keyword)
             if " " in keyword:
@@ -1081,14 +1090,6 @@ class ContentFilterGuardrail(CustomGuardrail):
                     f"Always-block keyword '{keyword}' found in category '{category}'"
                 )
                 return (keyword, category, severity, action)
-
-        # First check if any exception applies
-        for exception in exceptions:
-            if exception in text_lower:
-                verbose_proxy_logger.debug(
-                    f"Exception phrase '{exception}' found, skipping category keyword check"
-                )
-                return None
 
         # Check category keywords
         for keyword, (category, severity, action) in self.category_keywords.items():
